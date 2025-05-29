@@ -5,7 +5,7 @@
 security/
 
 # Arquivos locais
-configs/syspass-cloud_init.cfg
+configs/syspass-cloud-init.cfg
 configs/syspass-network-config.cfg
 .terraform.lock.hcl
 plano-syspass
