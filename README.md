@@ -2,10 +2,12 @@
 Projeto: terraform-proxmox-debian-syspass
 Descrição: Este projeto automatiza a criação de uma máquina virtual Debian 12 (Bookworm) no Proxmox utilizando Terraform e Cloud-Init, realizando a instalação do sysPass via Docker, além de configurar um processo completo de backup e restauração no Amazon S3.
 Autor: Glauber GF (mcnd2)
-Criado em: 2025-05-26
+Criado em: 26-05-2025
 ---
 
 ![Image](https://github.com/glaubergf/terraform-proxmox-debian-syspass/blob/main/images/tf-pm-syspass.png)
+
+![Image](https://github.com/glaubergf/terraform-proxmox-debian-syspass/blob/main/images/syspass.png)
 
 ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
 
@@ -15,12 +17,12 @@ Este projeto provisiona um servidor **Debian 12 (Bookworm)** no **Proxmox VE** u
 
 ## 🪄 O Projeto Realiza
 
-- Download automático da imagem Debian noCloud;
-- Criação de VM no Proxmox via QEMU;
-- Configuração automática via Cloud-Init;
-- Instalação do Docker e implantação do sysPass como container;
-- Restauração automática do banco de dados sysPass (dump + config.xml) a partir do S3;
-- Backup diário do banco no S3, executado via cron;
+- Download automático da imagem Debian noCloud.
+- Criação de VM no Proxmox via QEMU.
+- Configuração automática via Cloud-Init.
+- Instalação do Docker e implantação do sysPass como container.
+- Restauração automática do banco de dados sysPass (dump + config.xml) a partir do S3.
+- Backup diário do banco no S3, executado via cron.
 - Validação de alteração no banco antes de realizar novos backups.
 
 ## 🧩 Tecnologias Utilizadas
