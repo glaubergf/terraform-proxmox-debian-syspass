@@ -1,0 +1,58 @@
+### Resumo dos Comandos para restaurar backup de um host para dentro de um container:
+
+### Passo 1: Copiar o 'config.xml' do old-host para o docker-host.
+#scp user@old-host:/path/to/config.xml /path/to/destination/on/docker-host/
+
+sudo cp /var/www/html/syspass/app/config/config.xm .
+scp config.xml syspass@192.168.0.159:/home/syspass/
+
+
+### Passo 2: Editar o 'config.xml' para refletir o nome do host do banco (syspass-db) 
+# e credenciais ficando conforme declarado no docker-compose.yml .
+# Abrir e editar o arquivo 'config.xml' no docker-host.
+
+  <!-- Configuracao para o usuario root -->
+  <dbHost>syspass-db</dbHost>
+  <dbName>syspassdb</dbName>
+  <dbPass>root999</dbPass>
+  <dbPort>3306</dbPort>
+  <dbSocket></dbSocket>
+  <dbUser>root</dbUser>
+
+  <!-- Configuracao para o usuario comum (syspassuser) -->
+  <dbUserCommon>syspassuser</dbUserCommon>
+  <dbPassCommon>syspass999</dbPassCommon>
+
+
+### Passo 3: Atualizar o 'docker-compose.yml' com as credenciais e volumes corretos.
+# Editar docker-compose.yml conforme exemplo.
+
+nano docker-compose.yml
+
+
+### Passo 4: Copiar o 'config.xml' para o volume Docker.
+
+cp syspassdb-config.xml /var/lib/docker/volumes/syspass-app-config/_data/config.xml
+
+
+### Passo 5: Restaurar o backup do banco de dados.
+
+cat syspassdb-dump-local-20250513.sql | docker exec -i syspass-db mariadb -u root -p$MYSQL_ROOT_PASSWORD syspassdb
+
+
+### Passo 6: Reiniciar o container da aplicação SysPass.
+
+docker restart syspass-app
+
+
+### Passo 7: Verificar os logs para garantir que ele foi iniciado corretamente.
+
+docker logs -f syspass-app
+
+
+### Passo 8: Acessar a aplicação SysPass no navegador.
+
+http://192.168.0.159
+
+
+Com esses passos, conseguimos restaurar o banco de dados e configurar o SysPass corretamente em um novo host em Docker.
