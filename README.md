@@ -96,7 +96,7 @@ terraform-proxmox-debian-syspass
 │   ├── .env
 │   ├── aws-config
 │   ├── aws-credentials
-│   ├── tproxmox_id_rsa
+│   ├── proxmox_id_rsa
 │   └── proxmox_id_rsa.pub
 ├── terraform.tfvars
 ├── variables.tf
