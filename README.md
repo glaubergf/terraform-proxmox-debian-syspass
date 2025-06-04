@@ -13,14 +13,17 @@ Criado em: 26-05-2025
 
 # Servidor Debian sysPass (Docker)
 
+## 📜 Sobre o Projeto
+
 Este projeto provisiona um servidor **Debian 12 (Bookworm)** no **Proxmox VE** utilizando **Terraform** e **cloud-init**, com implantação automatizada do gerenciador de senhas **sysPass** em container **Docker**.
 
 ## 🪄 O Projeto Realiza
 
 - Download automático da imagem Debian noCloud.
 - Criação de VM no Proxmox via QEMU.
-- Configuração automática via Cloud-Init.
-- Instalação do Docker e implantação do sysPass como container.
+- Configuração do sistema operacional via Cloud-Init.
+- Instalação e configuração do Docker.
+- Deploy do container do sysPass e MariaDB.
 - Restauração automática do banco de dados sysPass (dump + config.xml) a partir do S3.
 - Backup diário do banco no S3, executado via cron.
 - Validação de alteração no banco antes de realizar novos backups.
@@ -45,6 +48,9 @@ Este projeto provisiona um servidor **Debian 12 (Bookworm)** no **Proxmox VE** u
 ![sysPass](https://img.shields.io/badge/sysPass-394855?style=for-the-badge&logo=lock&logoColor=white)
 - [sysPass](https://syspass-doc.readthedocs.io/en/3.1/) — Gerenciador de senhas seguro e colaborativo.
 ---
+![MariaDB](https://img.shields.io/badge/MariaDB-003545?style=for-the-badge&logo=mariadb&logoColor=white)
+- [MariaDB](https://mariadb.org) — Banco de dados relacional
+---
 ![AWS S3](https://img.shields.io/badge/AWS%20S3-FF9900?logo=amazonaws&logoColor=white&style=for-the-badge)
 - [AWS S3](https://aws.amazon.com/pt/s3/) — Armazenamento de objetos.
 
@@ -58,12 +64,12 @@ Automatizar a criação de um ambiente seguro e escalável para gerenciamento de
 
 ## 🛠️ Pré-requisitos
 
-- Proxmox VE com API habilitada.
-- Usuário no Proxmox com permissão para criação de VMs.
-- Terraform instalado (versão recomendada >= 1.5).
-- Bucket na AWS S3 configurado.
-- Chave de acesso à AWS configurada.
-- Chave SSH pública e privada para acesso à VM.
+- ✅ Proxmox VE com API habilitada.
+- ✅ Usuário no Proxmox com permissão para criação de VMs.
+- ✅ Bucket na AWS S3 configurado.
+- ✅ Chave de acesso à AWS configurada.
+- ✅ Chave SSH pública e privada para acesso à VM.
+- ✅ Terraform instalado localmente.
 
 ## 📂 Estrutura do Projeto
 
@@ -102,25 +108,92 @@ terraform-proxmox-debian-syspass
 ├── variables.tf
 └── vm-proxmox.tf
 ```
+
+### 📄 Arquivos
+
+- `provider.tf` → Provedor do Proxmox
+- `vm_proxmox.tf` → Criação da VM, configuração da rede, execução dos scripts
+- `variables.tf` → Definição de variáveis
+- `terraform.tfvars` → Valores das variáveis (customização)
+- `cloud_config.yml` → Configurações do Cloud-Init (usuário, pacotes, timezone, scripts)
+- `network_config.yml` → Configuração de rede estática
+- `docker-compose.yml` → Define e organiza os contêineres Docker
+- `.env` → Variáveis de acesso ao banco de dados, bucket S3, credenciais AWS, diretórios e arquivos
+
 ## 🚀 Fluxo de Funcionamento
 
-1. **Templates gerados:** cloud-init e configuração de rede.
-2. **Transferência:** arquivos enviados via Terraform para o Proxmox.
-3. **Criação da VM:** provisionada com imagem Debian nocloud.
-4. **Execução de scripts:** instala Docker, configura sistema e sysPass.
-5. **Backup:** restauração do último backup do S3.
-6. **Automação:** script no cron para backup diário, com upload ao S3.
+1. **Terraform Init:** Inicializa o Terraform e carrega os providers e módulos necessários.
+
+2. **Download da imagem Debian noCloud:** Baixa a imagem Debian pré-configurada (noCloud) se ainda não estiver no Proxmox.
+
+3. **Criação da VM no Proxmox:** Terraform cria uma VM no Proxmox com base nas variáveis definidas.
+
+4. **Aplicação do Cloud-Init:** Injeta configuração automática na VM (rede, usuário, SSH, hostname, etc.).
+
+5. **Configuração inicial da VM:** A VM é inicializada e aplica configurações básicas (acesso remoto, hostname, rede, etc.).
+
+6. **Preparação da VM:** Envio de arquivos de confiurações para a VM, instalação do Docker e Docker Compose na VM, etc.
+
+7. **Deploy dos containers:** O Docker Compose sobe o container do sysPass e do mariaDB.
+
+8. **Execução do scripts:** Após o sysPass estiver inicializado corretamente, executa o download de backup do S3, restaura o banco e faz novo backup do banco restaurado do sysPass para o bucket S3.
+
+## 🛠️ Terraform
+
+Ferramenta de IaC (Infrastructure as Code) que permite definir e gerenciar infraestrutura através de arquivos de configuração declarativos.
+
+Saiba mais: [https://developer.hashicorp.com/terraform](https://developer.hashicorp.com/terraform)
+
+## 🖥️ Proxmox VE
+
+O Proxmox VE é um hipervisor bare-metal, robusto e completo, muito utilizado tanto em ambientes profissionais quanto em homelabs. É uma plataforma de virtualização open-source que permite gerenciar máquinas virtuais e containers de forma eficiente, com suporte a alta disponibilidade, backups, snapshots e uma interface web intuitiva.
+
+Saiba mais: [https://www.proxmox.com/](https://www.proxmox.com/)
+
+## 🐧 Debian
+
+Distribuição Linux livre, estável e robusta. A imagem utilizada é baseada em **Debian noCloud**, que permite integração com Cloud-Init no Proxmox.
+
+Saiba mais: [https://www.debian.org/](https://www.debian.org/)
+
+### ☁️ Sobre a imagem Debian nocloud
+
+Este projeto utiliza a imagem Debian nocloud por maior estabilidade no provisionamento via Terraform no Proxmox, evitando problemas recorrentes como **kernel panic** em outras versões (*generic*, *genericcloud*).
+
+## ☁️ Cloud-Init
+
+Ferramenta de provisionamento padrão de instâncias de nuvem. Permite configurar usuários, pacotes, rede, timezone, scripts e mais, tudo automaticamente na criação da VM.
+
+Saiba mais: [https://cloudinit.readthedocs.io/](https://cloudinit.readthedocs.io/)
+
+## 🐳 Docker
+
+Plataforma que permite empacotar, distribuir e executar aplicações em containers de forma leve, portátil e isolada, facilitando a implantação e escalabilidade de serviços.
+
+Saiba mais: [https://www.docker.com](https://www.docker.com)
+
+## 🔒 sysPass
+
+O sysPass é uma aplicação web segura e colaborativa para gerenciamento de senhas, com funcionalidades como:
+
+- Compartilhamento controlado;
+- ACLs e perfis;
+- Backup, exportação e auditoria;
+- Integração com LDAP;
+- Suporte a campos personalizados.
+
+Mais informações: [https://syspass-doc.readthedocs.io/](https://syspass-doc.readthedocs.io/)
 
 ## ▶️ Execução do Projeto
 
-1. Clone este repositório:
+1. Clone o repositório:
 
 ```bash
 git clone https://github.com/glaubergf/terraform-proxmox-debian-syspass.git
 cd terraform-proxmox-debian-syspass
 ```
 
-2. Edite o arquivo `terraform.tfvars` com suas configurações.
+2. Edite o arquivo `terraform.tfvars` com suas variáveis.
 
 3. Inicialize o Terraform:
 
@@ -128,19 +201,19 @@ cd terraform-proxmox-debian-syspass
 terraform init
 ```
 
-4. Mostra o que será criado:
+4. Execute o plano para mostra o que será criado:
 
 ```bash
 terraform plan
 ```
 
-5. Aplica o provisionamento:
+5. Aplique o provisionamento (infraestrutura):
 
 ```bash
 terraform apply
 ```
 
-6. Destrói toda a infraestrutura criada (caso necessário):
+6. Para destruir toda a infraestrutura criada (caso necessário):
 
 ```bash
 terraform destroy
@@ -152,22 +225,6 @@ terraform destroy
 terraform apply --auto-approve
 terraform destroy --auto-approve
 ```
-
-## ☁️ Sobre a imagem Debian nocloud
-
-Este projeto utiliza a imagem Debian nocloud por maior estabilidade no provisionamento via Terraform no Proxmox, evitando problemas recorrentes como **kernel panic** em outras versões (*generic*, *genericcloud*).
-
-## 🔒 Sobre o sysPass
-
-O sysPass é uma aplicação web segura e colaborativa para gerenciamento de senhas, com funcionalidades como:
-
-- Compartilhamento controlado;
-- ACLs e perfis;
-- Backup, exportação e auditoria;
-- Integração com LDAP;
-- Suporte a campos personalizados.
-
-Mais informações: [https://syspass-doc.readthedocs.io/](https://syspass-doc.readthedocs.io/)
 
 ## 🤝 Contribuições
 
