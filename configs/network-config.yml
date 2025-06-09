@@ -6,7 +6,7 @@ network:
       dhcp4: false
       dhcp6: false
       addresses:
-        - "192.168.0.159/24"
+        - "192.168.0.181/24"
       routes:
         - to: default
           via: "192.168.0.1"
