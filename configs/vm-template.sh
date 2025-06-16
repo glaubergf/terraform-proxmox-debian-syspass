@@ -5,96 +5,136 @@
 # Versão:     1.0
 # Autor:      Glauber GF (mcnd2)
 # Criado:     17/04/2025
-# Modificado: 21/05/2025
+# Atualizado: 14/06/2025
 #
 # Descrição:
-#   Esse script cria uma imagem de template em QCOW2 no servidor Proxmox.
+#   Esse script cria uma imagem de template atualizada em QCOW2 
+#   no servidor Proxmox.
 # ================================================================
 
-# === Instalar no servidor Proxmox o pacote 'libguestfs-tools' para manipulação de imagens QCOW2 ===
+set -euo pipefail
+
+# === Instalar dependência para manipular imagens QCOW2 ===
+# O pacote 'libguestfs-tools' é necessário para o 'virt-customize'
 if ! dpkg -l | grep -q libguestfs-tools; then
     apt update -y && apt install libguestfs-tools -y
 else
     echo "libguestfs-tools já está instalado."
 fi
 
-# === Imagens (https://cloud.debian.org/) ===
-# - generic: Deve rodar em qualquer ambiente usando cloud-init, por exemplo:
-#   OpenStack, DigitalOcean e também em bare metal.
-# - genericcloud: Semelhante ao generic. Deve rodar em qualquer ambiente virtualizado.
-#   É menor que `generic` ao excluir drivers para hardware físico.
-# - nocloud: Mais útil para testar o próprio processo de build.
-#   Não tem cloud-init instalado, mas permite login root sem senha.
+# === Variáveis de configuração ===
+URL="https://cdimage.debian.org/cdimage/cloud/bookworm/latest/debian-12-nocloud-amd64.qcow2"  # URL oficial da imagem nocloud
+IMAGE_NAME="debian-12-nocloud-amd64"            # Nome base da imagem
+IMAGE_FILE="${IMAGE_NAME}.qcow2"                # Nome do arquivo da imagem
+IMAGE_DIR="/var/lib/vz/template/qemu"           # Diretório onde ficam armazenadas as imagens no Proxmox
+ARCHIVE_DIR="$IMAGE_DIR/archive"                # Diretório onde a imagem antiga será arquivada
+STORAGE="local"                                 # Nome do storage no Proxmox (ex: local, local-lvm, etc)
+VMID=2000                                       # ID que será usado para o template
+TEMPLATE_NAME="bookworm-nocloud"                # Nome do template
+HASH_FILE="${IMAGE_FILE}.md5"                   # Arquivo do hash MD5 da imagem atual
 
-# === Variáveis ===
-URL=https://cdimage.debian.org/cdimage/cloud/bookworm/latest/debian-12-nocloud-amd64.qcow2
-IMAGE=debian-12-nocloud-amd64
-NAME=bookworm-nocloud
-STORAGE=local
-VMID=2000
+# === Criar diretório para armazenar imagens antigas compactadas ===
+mkdir -p "$ARCHIVE_DIR"
 
-# === Verificar se o template com nome $NAME já existe, se não, continuar com o script ===
-if qm list | grep -q "$NAME"; then
-  echo "Template $NAME já existe. Pulando criação do Template."
-  exit 0
-fi
+# === Função: Baixar a imagem mais recente e verificar se ela é diferente da atual ===
+download_latest_image() {
+  echo "[+] Verificando nova versão da imagem..."
 
-# === Baixar a imagem do Sistema Operacional "nocloud" em "/var/lib/vz/template/qemu" ===
-cd /var/lib/vz/template/qemu/
-if [ ! -f "$IMAGE.qcow2" ]; then
-  wget $URL
+  cd "$IMAGE_DIR"
+
+  TMP_IMAGE="latest_temp.qcow2"
+  HASH_FILE="${IMAGE_FILE}.md5"  # Arquivo onde o hash MD5 da imagem atual é salvo
+
+  # === Baixar a imagem temporária para comparação ===
+  wget -q -O "$TMP_IMAGE" "$URL"
+
+  # === Se já houver imagem existente, comparar os hashes ===
+  if [ -f "$IMAGE_FILE" ]; then
+    # Calcula o hash da imagem nova
+    TMP_HASH=$(md5sum "$TMP_IMAGE" | awk '{print $1}')
+
+    # Verifica se há hash antigo salvo
+    if [ -f "$HASH_FILE" ]; then
+      OLD_HASH=$(cat "$HASH_FILE")
+
+      if [ "$TMP_HASH" == "$OLD_HASH" ]; then
+        echo "[✓] A imagem atual já está atualizada (hash MD5 idêntico)."
+        rm "$TMP_IMAGE"
+        return 1  # Nenhuma ação necessária
+      else
+        echo "[!] Imagem nova detectada via hash. Arquivando a imagem atual..."
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        gzip -c "$IMAGE_FILE" > "$ARCHIVE_DIR/${IMAGE_FILE}.${TIMESTAMP}.gz"
+        rm "$IMAGE_FILE"
+      fi
+    else
+      echo "[!] Hash anterior não encontrado. Tratando como nova imagem."
+      gzip -c "$IMAGE_FILE" > "$ARCHIVE_DIR/${IMAGE_FILE}.nohash.gz"
+      rm "$IMAGE_FILE"
+    fi
+  fi
+
+  # === Salvar nova imagem e gerar novo hash ===
+  mv "$TMP_IMAGE" "$IMAGE_FILE"
+  TMP_HASH=$(md5sum "$IMAGE_FILE" | awk '{print $1}')
+  echo "$TMP_HASH" > "$HASH_FILE"
+
+  echo "[+] Nova imagem baixada e hash registrado para futuras comparações."
+  return 0
+}
+
+# === Função: Remover template existente com seu disco ===
+remove_old_template() {
+  if qm list | grep -q "$TEMPLATE_NAME"; then
+    echo "[!] Template existente encontrado. Removendo..."
+    qm destroy $VMID --purge || true
+  else
+    echo "[✓] Nenhum template anterior encontrado."
+  fi
+}
+
+# === Função: Criar o novo template atualizado ===
+create_template() {
+  echo "[+] Personalizando imagem..."
+
+  # Instalar pacotes e configurar o qemu-guest-agent
+  virt-customize -a "$IMAGE_FILE" \
+    --install cloud-init,qemu-guest-agent \
+    --run-command 'systemctl enable qemu-guest-agent' \
+    --run-command 'systemctl start qemu-guest-agent' \
+    --truncate /etc/machine-id
+
+  echo "[+] Criando nova VM no Proxmox..."
+  qm create $VMID -name $TEMPLATE_NAME -memory 1024 -cores 1 -sockets 1 -net0 virtio,bridge=vmbr0 --scsihw virtio-scsi-pci
+
+  echo "[+] Importando disco para o storage do Proxmox..."
+  qm importdisk $VMID "$IMAGE_DIR/$IMAGE_FILE" $STORAGE
+
+  # === Anexar o disco à VM ===
+  qm set $VMID -scsihw virtio-scsi-pci -scsi0 $STORAGE:$VMID/vm-$VMID-disk-0.raw
+
+  # Configurações adicionais da VM
+  qm set $VMID -boot c -bootdisk scsi0                   # Definir disco de boot
+  qm set $VMID -agent 1                                  # Habilitar QEMU guest agent
+  qm set $VMID -hotplug disk,network,usb                 # Permitir hotplug
+  qm set $VMID -vcpus 1                                  # Adicionar vCPU
+  qm set $VMID -vga qxl                                  # Definir saída de vídeo
+  qm set $VMID -ide2 $STORAGE:cloudinit                  # Adicionar disco de cloud-init
+
+  # Aumentar o tamanho do disco principal
+  qm disk resize $VMID scsi0 +4G
+
+  # Converter a VM em template
+  echo "[+] Convertendo para template..."
+  qm template $VMID
+
+  echo "[✓] Template atualizado com sucesso!"
+}
+
+# === Execução principal ===
+if download_latest_image; then
+  remove_old_template
+  create_template
 else
-  echo "Imagem $IMAGE.qcow2 já existe. Pulando download da imagem."
+  echo "[✓] Nenhuma ação necessária. Template está atualizado."
 fi
-
-# === Instalar o 'cloud-init', o 'qemu-guest-agent' e configurar ===
-virt-customize -a $IMAGE.qcow2 --install cloud-init
-virt-customize -a $IMAGE.qcow2 --install qemu-guest-agent \
-  --run-command 'systemctl enable qemu-guest-agent.service' \
-  --run-command 'systemctl start qemu-guest-agent.service'
-
-# === Apagar o conteúdo do arquivo /etc/machine-id, que é usado para gerar um ID único da máquina, evitando conflito ===
-virt-customize -a $IMAGE.qcow2 --truncate /etc/machine-id
-
-# === Criar uma nova instância de VM no Proxmox ===
-qm create $VMID -name $NAME -memory 1024 -cores 1 -sockets 1 -net0 virtio,bridge=vmbr0 --scsihw virtio-scsi-pci
-
-# === Listar armazenamento disponível no Proxmox ===
-#pvesh get /storage
-
-# === Importar a imagem cloud do Debian para o armazenamento Proxmox (local) ===
-qm importdisk $VMID /var/lib/vz/template/qemu/$IMAGE.qcow2 $STORAGE
-
-# === Anexar o disco à VM ===
-qm set $VMID -scsihw virtio-scsi-pci -scsi0 $STORAGE:$VMID/vm-$VMID-disk-0.raw
-
-# === Adicionar saída serial (se usar Openstack ou para monitoramento) ===
-#qm set $VMID -serial0 socket
-
-# === Definir o "bootdisk" para o disco Debian Cloud importado ===
-qm set $VMID -boot c -bootdisk scsi0
-
-# === Habilitar o Qemu agent para controle remoto da VM ===
-qm set $VMID -agent 1
-
-# === Permitir "hotplugging" de rede, USB e discos ===
-qm set $VMID -hotplug disk,network,usb
-
-# === Adicionar uma única vCPU para a VM (por enquanto) ===
-qm set $VMID -vcpus 1
-
-# === Adicionar uma saída de vídeo para a VM ===
-qm set $VMID -vga qxl
-
-# === Adicionar o disco cloud-init (para que o Cloud-init configure a VM automaticamente) ===
-qm set $VMID -ide2 $STORAGE:cloudinit #,media=cdrom
-
-# === Aumentar o tamanho do disco de inicialização (se necessário) ===
-# O tamanho padrão pode ser pequeno, por isso, é bom adicionar mais espaço.
-qm disk resize $VMID scsi0 +4G
-
-# === Adicionar tags à VM ===
-#qm set $VMID -tags "template,cloudinit"
-
-# === Converter a VM para o modelo, tornando-a uma template ===
-qm template $VMID
