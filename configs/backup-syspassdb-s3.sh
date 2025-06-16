@@ -5,7 +5,7 @@
 # Versão:     1.2
 # Autor:      Glauber GF (mcnd2)
 # Criado:     19/05/2025
-# Modificado: 25/05/2025
+# Atualizado: 15/06/2025
 #
 # Descrição:
 #   Este script realiza o backup completo do SysPass, incluindo:
@@ -136,30 +136,6 @@ create_snapshot() {
 
     docker exec "$DB_CONTAINER" \
         mysql --defaults-extra-file=/tmp/my.cnf -N -B -e "$SNAPSHOT_QUERY" "$DB_NAME"
-}
-
-# === Executa mysqldump ignorando tabelas menos relevantes
-run_mysqldump() {
-    docker exec "$DB_CONTAINER" mysqldump \
-      --defaults-extra-file=/tmp/my.cnf \
-      --skip-comments \
-      --skip-add-drop-table \
-      --no-tablespaces \
-      --order-by-primary \
-      --skip-dump-date \
-      --ignore-table=${DB_NAME}.EventLog \
-      --ignore-table=${DB_NAME}.Track \
-      --ignore-table=${DB_NAME}.AuthToken \
-      --ignore-table=${DB_NAME}.Notification \
-      "$DB_NAME"
-}
-
-# === Faz backup separado da tabela UserToUserGroup (garante integridade referencial)
-append_usertousergroup_dump() {
-    docker exec "$DB_CONTAINER" \
-      mysql --defaults-extra-file=/tmp/my.cnf -e \
-      "SELECT * FROM ${DB_NAME}.UserToUserGroup ORDER BY userId, userGroupId;" \
-      | sed '1d' | awk -v table="UserToUserGroup" '{print "INSERT INTO `"table"` VALUES (\x27"$1"\x27,\x27"$2"\x27);"}'
 }
 
 # === Copia arquivo apenas se houver alteração (verifica hash)
@@ -337,11 +313,18 @@ if [[ "$SNAPSHOT_CHANGED" == true || "$CONFIG_CHANGED" == true ]]; then
 
     # === Gerar DUMP SQL na hora
     log_message INFO "Gerando DUMP SQL para backup..."
-    if { run_mysqldump | sed '/^--/d' | sed 's/\r//' ; append_usertousergroup_dump; } > "$DUMP_PATH"; then
-        log_message INFO "DUMP SQL gerado com sucesso."
+    if [ "$SNAPSHOT_CHANGED" == true ] || [ "$CONFIG_CHANGED" == true ]; then
+        docker exec "$DB_CONTAINER" mysql --defaults-extra-file=/tmp/my.cnf -e "FLUSH TABLES WITH READ LOCK;"
+        if docker exec "$DB_CONTAINER" mysqldump --defaults-extra-file=/tmp/my.cnf "$DB_NAME" > "$DUMP_PATH"; then
+            docker exec "$DB_CONTAINER" mysql --defaults-extra-file=/tmp/my.cnf -e "UNLOCK TABLES;"
+            log_message INFO "DUMP SQL gerado com sucesso."
+        else
+            docker exec "$DB_CONTAINER" mysql --defaults-extra-file=/tmp/my.cnf -e "UNLOCK TABLES;"
+            log_message ERRO "Erro ao gerar DUMP SQL."
+            exit 1
+        fi
     else
-        log_message ERRO "Erro ao gerar DUMP SQL."
-        exit 1
+        log_message INFO "Nenhuma alteração detectada, dump não gerado."
     fi
 
     # === Upload do DUMP SQL
