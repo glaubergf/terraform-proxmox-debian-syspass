@@ -9,7 +9,7 @@
 #
 # Descrição:
 #   Este script realiza a mudança do motd que são mensagem personalizadas
-#   que é apresentada ao lofazer login no servidor.
+#   que é apresentada ao fazer login no servidor.
 # ================================================================
 
 # === Modificar o motd.
