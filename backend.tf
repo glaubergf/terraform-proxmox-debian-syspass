@@ -1,4 +1,4 @@
-terraform {
+/*terraform {
   backend "remote" {
     organization = "homelabmcn" # https://app.terraform.io/app/organizations
 
@@ -6,4 +6,4 @@ terraform {
       name = "terraform-proxmox-debian-syspass-dev"
     }
   }
-}
+}*/
