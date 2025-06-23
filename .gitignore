@@ -8,6 +8,7 @@ security/
 configs/syspass-cloud-init.cfg
 configs/syspass-network-config.cfg
 .terraform.lock.hcl
+backend.tf
 plano-syspass
 terraform.tfstate*
 terraform.tfvars
