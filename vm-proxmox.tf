@@ -149,7 +149,7 @@ resource "proxmox_vm_qemu" "debian_nocloud" {
 }
 
 ## Provisionar as configurações dentro da VM após criada.
-# Envio de arquivos para a VM
+# Enviar de arquivos para a VM
 resource "null_resource" "upload_files" {
   depends_on = [proxmox_vm_qemu.debian_nocloud]
 
