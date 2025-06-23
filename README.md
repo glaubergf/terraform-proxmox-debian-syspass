@@ -57,7 +57,7 @@ Este projeto provisiona um servidor **Debian 12 (Bookworm)** no **Proxmox VE** u
 - [sysPass](https://syspass-doc.readthedocs.io/en/3.1/) — Gerenciador de senhas seguro e colaborativo.
 ---
 ![MariaDB](https://img.shields.io/badge/MariaDB-003545?style=for-the-badge&logo=mariadb&logoColor=white)
-- [MariaDB](https://mariadb.org) — Banco de dados relacional
+- [MariaDB](https://mariadb.org) — Banco de dados relacional.
 ---
 ![AWS S3](https://img.shields.io/badge/AWS%20S3-FF9900?logo=amazonaws&logoColor=white&style=for-the-badge)
 - [AWS S3](https://aws.amazon.com/pt/s3/) — Armazenamento de objetos.
@@ -95,24 +95,25 @@ terraform-proxmox-debian-syspass
 │   ├── restore-syspassdb.sh
 │   └── vm-template.sh
 ├── images
+│   ├── syspass.png
 │   └── tf-pm-syspass.png
-├── CHANGELOG.md
-├── LICENSE
 ├── notes
 │   ├── art-ascii-to-modt.txt
 │   ├── docker-compose.yml.template
 │   ├── dotenv.template
 │   ├── restore-file-config.xml.txt
 │   └── terraform.tfvars.template
-├── output.tf
-├── provider.tf
-├── README.md
 ├── security
 │   ├── .env
 │   ├── aws-config
 │   ├── aws-credentials
 │   ├── proxmox_id_rsa
 │   └── proxmox_id_rsa.pub
+├── CHANGELOG.md
+├── LICENSE
+├── output.tf
+├── provider.tf
+├── README.md
 ├── terraform.tfvars
 ├── variables.tf
 └── vm-proxmox.tf
