@@ -2,14 +2,15 @@
 
 # ================================================================
 # Nome:       vm-template.sh
-# Versão:     1.0
+# Versão:     2.0
 # Autor:      Glauber GF (mcnd2)
 # Criado:     17/04/2025
 # Atualizado: 14/06/2025
 #
 # Descrição:
-#   Esse script cria uma imagem de template atualizada em QCOW2 
-#   no servidor Proxmox.
+#   Esse script cria uma imagem de template do sistema 
+#   Debian GNU/Linux atualizada no formato QCOW2 no 
+#   servidor Proxmox
 # ================================================================
 
 set -euo pipefail
@@ -19,7 +20,7 @@ set -euo pipefail
 if ! dpkg -l | grep -q libguestfs-tools; then
     apt update -y && apt install libguestfs-tools -y
 else
-    echo "libguestfs-tools já está instalado."
+    echo "[✓] libguestfs-tools já está instalado."
 fi
 
 # === Variáveis de configuração ===
