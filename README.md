@@ -96,6 +96,7 @@ terraform-proxmox-debian-syspass
 │   └── vm-template.sh
 ├── images
 │   └── tf-pm-syspass.png
+├── CHANGELOG.md
 ├── LICENSE
 ├── notes
 │   ├── art-ascii-to-modt.txt
