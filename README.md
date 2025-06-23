@@ -1,8 +1,16 @@
 <!---
+# ================================================================
 Projeto: terraform-proxmox-debian-syspass
-Descrição: Este projeto automatiza a criação de uma máquina virtual Debian 12 (Bookworm) no Proxmox utilizando Terraform e Cloud-Init, realizando a instalação do sysPass via Docker, além de configurar um processo completo de backup e restauração no Amazon S3.
-Autor: Glauber GF (mcnd2)
-Criado em: 26-05-2025
+---
+Descrição:  Este projeto automatiza a criação de uma máquina virtual
+    Debian 12 (Bookworm) no Proxmox utilizando Terraform e Cloud-Init, 
+    realizando a instalação do sysPass via Docker, além de configurar um 
+    processo completo de backup e restauração no Amazon S3.
+---
+Autor:      Glauber GF (mcnd2)
+Criado:     26-05-2025
+Atualizado: 23/06/2025
+# ================================================================
 --->
 
 # Servidor Debian sysPass (Docker)
@@ -19,13 +27,13 @@ Este projeto provisiona um servidor **Debian 12 (Bookworm)** no **Proxmox VE** u
 
 ## 🪄 O Projeto Realiza
 
-- Download automático da imagem Debian noCloud.
+- Download automático da imagem atualizada do Debian noCloud.
 - Criação de VM no Proxmox via QEMU.
 - Configuração do sistema operacional via Cloud-Init.
 - Instalação e configuração do Docker.
 - Deploy do container do sysPass e MariaDB.
-- Restauração automática do banco de dados sysPass (dump + config.xml) a partir do S3.
-- Backup diário do banco no S3, executado via cron.
+- Restauração automática do banco de dados sysPass (dump.sql + config.xml) a partir do bucket S3.
+- Backup diário do banco para o bucket S3, executado via cron.
 - Validação de alteração no banco antes de realizar novos backups.
 
 ## 🧩 Tecnologias Utilizadas
@@ -136,7 +144,7 @@ terraform-proxmox-debian-syspass
 
 7. **Deploy dos containers:** O Docker Compose sobe o container do sysPass e do mariaDB.
 
-8. **Execução do scripts:** Após o sysPass estiver inicializado corretamente, executa o download de backup do S3, restaura o banco e faz novo backup do banco restaurado do sysPass para o bucket S3.
+8. **Execução dos scripts:** Após o sysPass estiver inicializado corretamente, executa o download de backup do S3, restaura o banco e faz novo backup do banco restaurado do sysPass para o bucket S3.
 
 ## 🛠️ Terraform
 
