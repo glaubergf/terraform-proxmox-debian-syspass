@@ -139,16 +139,6 @@ variable "file_env_path" {
   sensitive   = true
 }
 
-/*variable "syspassdb_config_path" {
-  description = "Caminho para o arquivo 'config.xml' de conexão do banco de dados"
-  type        = string
-}
-
-variable "syspassdb_dump_path" {
-  description = "Caminho para o dump do banco de dados"
-  type        = string
-}*/
-
 variable "download_syspassdb_path" {
   description = "Caminho do script de download do backup do banco de dados"
   type        = string
